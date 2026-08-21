@@ -5,13 +5,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#101418" />
 <title>Agendamento — Barbearia</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
 <style>html,body,#root{background:#101418;min-height:100%}</style>
 </head>
 <body>
+<script>
+window.__erro = function (msg) {
+  var r = document.getElementById("root");
+  if (!r) return;
+  r.innerHTML = '<div style="color:#E9EEEA;font:14px/1.5 system-ui;padding:20px">'
+    + '<b style="color:#C89B3F">Erro ao iniciar o app</b><br><br>'
+    + '<code style="color:#B23A2F;word-break:break-word">' + msg + '</code></div>';
+};
+window.addEventListener("error", function (e) {
+  window.__erro((e.message || "erro") + (e.filename ? " — " + e.filename + ":" + e.lineno : ""));
+});
+window.addEventListener("DOMContentLoaded", function () {
+  setTimeout(function () {
+    var r = document.getElementById("root");
+    if (r && !r.children.length) {
+      window.__erro("Nada renderizou. Verifique se os scripts do React/Babel/Tailwind carregaram (rede ou bloqueador).");
+    }
+  }, 4000);
+});
+</script>
 <div id="root"></div>
 <script type="text/babel" data-presets="react">
 const { useState, useMemo } = React;
@@ -979,7 +999,11 @@ function AdminEquipe({ barbeiros, setBarbeiros, agendamentos }) {
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+try {
+  var alvo = document.getElementById("root");
+  if (ReactDOM.createRoot) { ReactDOM.createRoot(alvo).render(<App />); }
+  else { ReactDOM.render(<App />, alvo); }
+} catch (e) { window.__erro(e && e.message ? e.message : String(e)); }
 </script>
 </body>
 </html>
