@@ -1,0 +1,985 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#101418" />
+<title>Agendamento — Barbearia</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>html,body,#root{background:#101418;min-height:100%}</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useMemo } = React;
+
+/* ---- ícones (traçados simples, substituem o lucide-react) ---- */
+const svg = (d) => (p) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={p.size || 16} height={p.size || 16} viewBox="0 0 24 24"
+       fill="none" stroke={p.color || "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+       className={p.className}>{d}</svg>
+);
+const Scissors = svg(<><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></>);
+const Clock = svg(<><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>);
+const Check = svg(<polyline points="20 6 9 17 4 12"/>);
+const ChevronLeft = svg(<polyline points="15 18 9 12 15 6"/>);
+const Phone = svg(<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.35 1.9.66 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.31 1.85.53 2.81.66A2 2 0 0 1 22 16.92z"/>);
+const CalendarDays = svg(<><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>);
+const X = svg(<><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>);
+const Store = svg(<><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/></>);
+const User = svg(<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>);
+const Sliders = svg(<><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></>);
+const Plus = svg(<><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>);
+const Minus = svg(<line x1="5" y1="12" x2="19" y2="12"/>);
+const Trash2 = svg(<><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></>);
+const MapPin = svg(<><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></>);
+
+
+/* ---------- tokens ---------- */
+const C = {
+  ink: "#101418",
+  card: "#171D23",
+  line: "#26303A",
+  porc: "#E9EEEA",
+  steel: "#8A99A3",
+  red: "#B23A2F",
+};
+/* cor de destaque: vem do perfil da barbearia, via variável CSS */
+const ACC = "var(--acc)";
+const TINT = "color-mix(in srgb, var(--acc) 14%, transparent)";
+
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+.pole{background-image:repeating-linear-gradient(115deg,${C.red} 0 14px,${C.porc} 14px 28px,var(--acc) 28px 42px,${C.porc} 42px 56px);background-size:112px 100%;animation:roll 2.6s linear infinite}
+@keyframes roll{to{background-position:112px 0}}
+.btn:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+input{outline:none}
+@media (prefers-reduced-motion:reduce){.pole{animation:none}}
+`;
+
+const display = { fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" };
+const body = { fontFamily: "'IBM Plex Sans', sans-serif" };
+const mono = { fontFamily: "'IBM Plex Mono', monospace" };
+
+const CORES = [
+  { nome: "Latão", hex: "#C89B3F" },
+  { nome: "Menta", hex: "#4E9A6A" },
+  { nome: "Aço", hex: "#5B8DBE" },
+  { nome: "Vinho", hex: "#A8455A" },
+  { nome: "Roxo", hex: "#8467C0" },
+  { nome: "Brasa", hex: "#D2662F" },
+];
+
+const SEMANA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+const MES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
+/* ---------- dados iniciais ---------- */
+const PERFIL_INI = {
+  nome: "Navalha & Cia",
+  linha: "Barbearia · desde 2019",
+  endereco: "Rua das Laranjeiras, 214 — Rio de Janeiro",
+  whats: "(21) 90000-0000",
+  cor: "#C89B3F",
+  abre: 9 * 60,
+  fecha: 20 * 60,
+  passo: 30,
+  fechados: [0],
+};
+
+const SERVICOS_INI = [
+  { id: "s1", nome: "Corte social", preco: 45, dur: 40, ativo: true },
+  { id: "s2", nome: "Corte + barba", preco: 75, dur: 60, ativo: true },
+  { id: "s3", nome: "Barba na navalha", preco: 35, dur: 30, ativo: true },
+  { id: "s4", nome: "Degradê", preco: 55, dur: 45, ativo: true },
+  { id: "s5", nome: "Pigmentação", preco: 40, dur: 30, ativo: true },
+  { id: "s6", nome: "Corte infantil", preco: 35, dur: 30, ativo: true },
+];
+
+const BARBEIROS_INI = [
+  { id: "b1", nome: "Rafael Lima", apelido: "Rafa", esp: "Degradê e navalha", comissao: 50, ativo: true },
+  { id: "b2", nome: "Thiago Souza", apelido: "Tico", esp: "Clássicos e social", comissao: 45, ativo: true },
+  { id: "b3", nome: "Isabel Nunes", apelido: "Bel", esp: "Visagismo e cor", comissao: 55, ativo: true },
+];
+
+const iso = (d) => d.toISOString().slice(0, 10);
+const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+const brl = (v) => `R$ ${v.toFixed(2).replace(".", ",")}`;
+const diaDaSemana = (dataISO) => {
+  const [y, m, d] = dataISO.split("-").map(Number);
+  return new Date(y, m - 1, d).getDay();
+};
+
+function proximosDias(n, fechados) {
+  const out = [];
+  const hoje = new Date();
+  for (let i = 0; i < n; i++) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + i);
+    out.push({
+      iso: iso(d),
+      dia: d.getDate(),
+      semana: SEMANA[d.getDay()],
+      mes: MES[d.getMonth()],
+      fechado: fechados.includes(d.getDay()),
+    });
+  }
+  return out;
+}
+
+const hojeISO = iso(new Date());
+const amanha = new Date();
+amanha.setDate(amanha.getDate() + 1);
+const amanhaISO = iso(amanha);
+
+const INICIAIS = [
+  { id: "a1", barbeiro: "b1", data: hojeISO, ini: 600, servico: "s2", cliente: "Marcos Vieira", tel: "21 99xxx-1180", status: "concluído" },
+  { id: "a2", barbeiro: "b1", data: hojeISO, ini: 780, servico: "s4", cliente: "Pedro Habib", tel: "21 98xxx-0442", status: "confirmado" },
+  { id: "a3", barbeiro: "b2", data: hojeISO, ini: 660, servico: "s1", cliente: "Jonas Prado", tel: "21 99xxx-7731", status: "concluído" },
+  { id: "a4", barbeiro: "b3", data: hojeISO, ini: 900, servico: "s5", cliente: "Léo Carvalho", tel: "21 97xxx-2210", status: "confirmado" },
+  { id: "a5", barbeiro: "b2", data: amanhaISO, ini: 570, servico: "s3", cliente: "Danilo Reis", tel: "21 99xxx-5509", status: "confirmado" },
+];
+
+/* ---------- regra de horários ---------- */
+function slotsLivres(barbeiroId, dataISO, dur, agendamentos, servicos, perfil) {
+  if (perfil.fechados.includes(diaDaSemana(dataISO))) return [];
+  const ocupados = agendamentos
+    .filter((a) => a.barbeiro === barbeiroId && a.data === dataISO && a.status !== "cancelado")
+    .map((a) => {
+      const s = servicos.find((x) => x.id === a.servico);
+      return [a.ini, a.ini + (s ? s.dur : 30)];
+    });
+  const agora = new Date();
+  const minutosAgora = agora.getHours() * 60 + agora.getMinutes();
+  const out = [];
+  for (let t = perfil.abre; t + dur <= perfil.fecha; t += perfil.passo) {
+    if (dataISO === hojeISO && t < minutosAgora + 30) continue;
+    const bate = ocupados.some(([i, f]) => t < f && t + dur > i);
+    if (!bate) out.push(t);
+  }
+  return out;
+}
+
+/* ---------- UI base ---------- */
+const Pole = ({ h = 6 }) => <div className="pole w-full" style={{ height: h }} />;
+
+function Etapas({ n }) {
+  return (
+    <div className="flex gap-1 mb-5">
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: C.line }}>
+          {i <= n && <div className={i === n ? "pole h-full" : "h-full"} style={i === n ? {} : { background: ACC }} />}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Titulo({ children, sub }) {
+  return (
+    <div className="mb-4">
+      <h2 style={{ ...display, color: C.porc }} className="text-3xl leading-none">{children}</h2>
+      {sub && <p style={{ ...body, color: C.steel }} className="text-sm mt-1">{sub}</p>}
+    </div>
+  );
+}
+
+function Opcao({ ativo, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      className="btn w-full text-left px-4 py-3 rounded-lg border transition-colors"
+      style={{ background: ativo ? TINT : C.card, borderColor: ativo ? ACC : C.line }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Campo({ label, valor, onChange, placeholder, largura = "w-full", tipo = "text" }) {
+  return (
+    <div className={largura}>
+      {label && <label style={{ color: C.steel }} className="text-[11px]">{label}</label>}
+      <input
+        value={valor}
+        inputMode={tipo === "num" ? "numeric" : "text"}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="btn w-full mt-1 px-3 py-2 rounded-lg text-sm"
+        style={{ background: C.ink, border: `1px solid ${C.line}`, color: C.porc, ...(tipo === "num" ? mono : body) }}
+      />
+    </div>
+  );
+}
+
+function Chave({ ligado, onClick, rotulo }) {
+  return (
+    <button onClick={onClick} className="btn flex items-center gap-2">
+      <div className="w-9 h-5 rounded-full p-0.5 transition-colors" style={{ background: ligado ? ACC : C.line }}>
+        <div className="w-4 h-4 rounded-full transition-transform" style={{ background: ligado ? C.ink : C.steel, transform: ligado ? "translateX(16px)" : "none" }} />
+      </div>
+      <span style={{ color: ligado ? C.porc : C.steel }} className="text-xs">{rotulo}</span>
+    </button>
+  );
+}
+
+function Passo({ valor, onMenos, onMais, largura = "w-16" }) {
+  return (
+    <div className="flex items-center gap-1">
+      <button onClick={onMenos} className="btn p-1.5 rounded-md" style={{ border: `1px solid ${C.line}` }}><Minus size={12} color={C.steel} /></button>
+      <span style={{ ...mono, color: C.porc }} className={`text-sm text-center ${largura}`}>{valor}</span>
+      <button onClick={onMais} className="btn p-1.5 rounded-md" style={{ border: `1px solid ${C.line}` }}><Plus size={12} color={C.steel} /></button>
+    </div>
+  );
+}
+
+function FaixaDias({ dias, valor, onChange }) {
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
+      {dias.map((d) => {
+        const ativo = d.iso === valor;
+        return (
+          <button
+            key={d.iso}
+            disabled={d.fechado}
+            onClick={() => onChange(d.iso)}
+            className="btn shrink-0 w-16 py-2 rounded-lg border text-center"
+            style={{ background: ativo ? ACC : C.card, borderColor: ativo ? ACC : C.line, opacity: d.fechado ? 0.3 : 1 }}
+          >
+            <div style={{ ...body, color: ativo ? C.ink : C.steel }} className="text-[10px] uppercase tracking-wide">{d.semana}</div>
+            <div style={{ ...display, color: ativo ? C.ink : C.porc }} className="text-2xl leading-none">{d.dia}</div>
+            <div style={{ ...body, color: ativo ? C.ink : C.steel }} className="text-[10px]">{d.mes}</div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------- app ---------- */
+function App() {
+  const [modo, setModo] = useState("cliente");
+  const [perfil, setPerfil] = useState(PERFIL_INI);
+  const [agendamentos, setAgendamentos] = useState(INICIAIS);
+  const [servicos, setServicos] = useState(SERVICOS_INI);
+  const [barbeiros, setBarbeiros] = useState(BARBEIROS_INI);
+  const dias = useMemo(() => proximosDias(14, perfil.fechados), [perfil.fechados]);
+
+  const abas = [["cliente", "Cliente", User], ["painel", "Agenda", Store], ["admin", "Admin", Sliders]];
+  const iniciais = perfil.nome.trim().split(/\s+/).filter((p) => p.length > 2).slice(0, 2).map((p) => p[0]).join("") || "B";
+
+  return (
+    <div style={{ background: C.ink, ...body, "--acc": perfil.cor }} className="min-h-screen w-full">
+      <style>{CSS}</style>
+      <header style={{ background: C.card, borderBottom: `1px solid ${C.line}` }}>
+        <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-8 h-8 rounded-md flex items-center justify-center shrink-0" style={{ background: ACC }}>
+              {perfil.nome.trim() ? (
+                <span style={{ ...display, color: C.ink }} className="text-base leading-none">{iniciais.toUpperCase()}</span>
+              ) : (
+                <Scissors size={16} color={C.ink} />
+              )}
+            </div>
+            <div className="min-w-0">
+              <div style={{ ...display, color: C.porc }} className="text-xl leading-none truncate">{perfil.nome || "Sua barbearia"}</div>
+              {perfil.linha && <div style={{ color: C.steel }} className="text-[10px] truncate">{perfil.linha}</div>}
+            </div>
+          </div>
+          <div className="flex rounded-md overflow-hidden shrink-0" style={{ border: `1px solid ${C.line}` }}>
+            {abas.map(([k, label, Icon]) => (
+              <button
+                key={k}
+                onClick={() => setModo(k)}
+                className="btn px-2 py-1.5 text-[11px] flex items-center gap-1"
+                style={{ background: modo === k ? ACC : "transparent", color: modo === k ? C.ink : C.steel }}
+              >
+                <Icon size={12} /> {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <Pole />
+      </header>
+
+      <main className="max-w-md mx-auto px-4 py-5">
+        {modo === "cliente" && (
+          <Cliente dias={dias} agendamentos={agendamentos} setAgendamentos={setAgendamentos} servicos={servicos} barbeiros={barbeiros} perfil={perfil} />
+        )}
+        {modo === "painel" && (
+          <Painel dias={dias} agendamentos={agendamentos} setAgendamentos={setAgendamentos} servicos={servicos} barbeiros={barbeiros} perfil={perfil} />
+        )}
+        {modo === "admin" && (
+          <Admin dias={dias} agendamentos={agendamentos} servicos={servicos} setServicos={setServicos} barbeiros={barbeiros} setBarbeiros={setBarbeiros} perfil={perfil} setPerfil={setPerfil} />
+        )}
+      </main>
+    </div>
+  );
+}
+
+/* ---------- fluxo do cliente ---------- */
+function Cliente({ dias, agendamentos, setAgendamentos, servicos, barbeiros, perfil }) {
+  const [etapa, setEtapa] = useState(1);
+  const [servico, setServico] = useState(null);
+  const [barbeiro, setBarbeiro] = useState(null);
+  const [data, setData] = useState((dias.find((d) => !d.fechado) || dias[0]).iso);
+  const [hora, setHora] = useState(null);
+  const [nome, setNome] = useState("");
+  const [tel, setTel] = useState("");
+  const [feito, setFeito] = useState(null);
+
+  const menu = servicos.filter((s) => s.ativo);
+  const equipe = barbeiros.filter((b) => b.ativo);
+  const srv = servicos.find((s) => s.id === servico);
+  const brb = barbeiros.find((b) => b.id === barbeiro);
+  const livres = useMemo(
+    () => (srv && brb ? slotsLivres(brb.id, data, srv.dur, agendamentos, servicos, perfil) : []),
+    [srv, brb, data, agendamentos, servicos, perfil]
+  );
+
+  const fechadosTexto = perfil.fechados.length
+    ? `fecha ${perfil.fechados.map((d) => SEMANA[d]).join(", ")}`
+    : "aberto todos os dias";
+
+  const nomeOk = nome.trim().split(/\s+/).filter(Boolean).length >= 2;
+  const digitos = tel.replace(/\D/g, "");
+  const telOk = digitos.length >= 10 && digitos.length <= 11;
+  const pronto = nomeOk && telOk;
+
+  function confirmar() {
+    const novo = { id: `a${Date.now()}`, barbeiro: brb.id, data, ini: hora, servico: srv.id, cliente: nome.trim(), tel, status: "confirmado" };
+    setAgendamentos((a) => [...a, novo]);
+    setFeito(novo);
+  }
+
+  if (feito) {
+    const d = dias.find((x) => x.iso === feito.data);
+    return (
+      <div>
+        <div className="rounded-xl p-5 text-center" style={{ background: C.card, border: `1px solid ${ACC}` }}>
+          <div className="w-11 h-11 rounded-full mx-auto flex items-center justify-center" style={{ background: ACC }}>
+            <Check size={22} color={C.ink} />
+          </div>
+          <h2 style={{ ...display, color: C.porc }} className="text-3xl mt-3 leading-none">Horário marcado</h2>
+          <p style={{ color: C.steel }} className="text-sm mt-1">Você recebe um lembrete no WhatsApp 2h antes.</p>
+          <div className="mt-4 pt-4 space-y-1.5 text-sm" style={{ borderTop: `1px solid ${C.line}`, color: C.porc }}>
+            <p style={mono} className="text-2xl">{hhmm(feito.ini)}</p>
+            <p style={{ color: C.steel }}>{d.semana}, {d.dia} de {d.mes} · com {brb.apelido}</p>
+            <p>{srv.nome} · <span style={mono}>{brl(srv.preco)}</span></p>
+          </div>
+          {perfil.endereco && (
+            <div className="mt-4 pt-3 flex items-center justify-center gap-1.5" style={{ borderTop: `1px solid ${C.line}` }}>
+              <MapPin size={12} color={C.steel} />
+              <span style={{ color: C.steel }} className="text-xs">{perfil.endereco}</span>
+            </div>
+          )}
+        </div>
+        <button
+          onClick={() => { setFeito(null); setEtapa(1); setServico(null); setBarbeiro(null); setHora(null); }}
+          className="btn w-full mt-4 py-3 rounded-lg text-sm"
+          style={{ background: C.card, color: C.porc, border: `1px solid ${C.line}` }}
+        >
+          Marcar outro horário
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <Etapas n={etapa} />
+      {etapa > 1 && (
+        <button onClick={() => setEtapa(etapa - 1)} className="btn flex items-center gap-1 text-xs mb-3" style={{ color: C.steel }}>
+          <ChevronLeft size={14} /> voltar
+        </button>
+      )}
+
+      {etapa === 1 && (
+        <>
+          <Titulo sub="Preço e duração fechados na hora de marcar.">O que vai fazer hoje?</Titulo>
+          {menu.length === 0 ? (
+            <p style={{ color: C.steel }} className="text-sm">Nenhum serviço no cardápio. Cadastre em Admin › Serviços.</p>
+          ) : (
+            <div className="space-y-2">
+              {menu.map((s) => (
+                <Opcao key={s.id} ativo={servico === s.id} onClick={() => { setServico(s.id); setHora(null); setEtapa(2); }}>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span style={{ color: C.porc }} className="text-sm font-medium">{s.nome}</span>
+                    <span style={{ ...mono, color: ACC }} className="text-sm">{brl(s.preco)}</span>
+                  </div>
+                  <div style={{ ...mono, color: C.steel }} className="text-xs mt-0.5">{s.dur} min</div>
+                </Opcao>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {etapa === 2 && (
+        <>
+          <Titulo sub={`${srv.nome} · ${brl(srv.preco)}`}>Com quem?</Titulo>
+          {equipe.length === 0 ? (
+            <p style={{ color: C.steel }} className="text-sm">Nenhum barbeiro disponível. Ative alguém em Admin › Equipe.</p>
+          ) : (
+            <div className="space-y-2">
+              {equipe.map((b) => (
+                <Opcao key={b.id} ativo={barbeiro === b.id} onClick={() => { setBarbeiro(b.id); setHora(null); setEtapa(3); }}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: C.line }}>
+                      <span style={{ ...display, color: ACC }} className="text-lg leading-none">{b.apelido.slice(0, 2).toUpperCase()}</span>
+                    </div>
+                    <div>
+                      <div style={{ color: C.porc }} className="text-sm font-medium">{b.nome}</div>
+                      <div style={{ color: C.steel }} className="text-xs">{b.esp}</div>
+                    </div>
+                  </div>
+                </Opcao>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {etapa === 3 && (
+        <>
+          <Titulo sub={`${brb.apelido} · ${srv.dur} min · ${fechadosTexto}`}>Quando?</Titulo>
+          <FaixaDias dias={dias} valor={data} onChange={(v) => { setData(v); setHora(null); }} />
+          {livres.length === 0 ? (
+            <p style={{ color: C.steel }} className="text-sm mt-4">
+              {brb.apelido} não tem horário livre nesse dia. Escolha outra data ou volte e troque de barbeiro.
+            </p>
+          ) : (
+            <div className="grid grid-cols-4 gap-2 mt-4">
+              {livres.map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setHora(t)}
+                  className="btn py-2 rounded-md border text-sm"
+                  style={{ ...mono, background: hora === t ? ACC : C.card, color: hora === t ? C.ink : C.porc, borderColor: hora === t ? ACC : C.line }}
+                >
+                  {hhmm(t)}
+                </button>
+              ))}
+            </div>
+          )}
+          <button
+            disabled={hora === null}
+            onClick={() => setEtapa(4)}
+            className="btn w-full mt-5 py-3 rounded-lg text-sm font-medium"
+            style={{ background: hora === null ? C.line : ACC, color: hora === null ? C.steel : C.ink }}
+          >
+            Continuar
+          </button>
+        </>
+      )}
+
+      {etapa === 4 && (
+        <>
+          <Titulo sub="Seus horários ficam salvos no seu celular.">Entrar</Titulo>
+          <div className="rounded-lg p-4 mb-4 text-sm space-y-1" style={{ background: C.card, border: `1px solid ${C.line}` }}>
+            <div className="flex justify-between"><span style={{ color: C.steel }}>Serviço</span><span style={{ color: C.porc }}>{srv.nome}</span></div>
+            <div className="flex justify-between"><span style={{ color: C.steel }}>Barbeiro</span><span style={{ color: C.porc }}>{brb.apelido}</span></div>
+            <div className="flex justify-between"><span style={{ color: C.steel }}>Horário</span><span style={{ ...mono, color: C.porc }}>{hhmm(hora)}</span></div>
+            <div className="flex justify-between pt-1" style={{ borderTop: `1px solid ${C.line}` }}>
+              <span style={{ color: C.steel }}>Total</span><span style={{ ...mono, color: ACC }}>{brl(srv.preco)}</span>
+            </div>
+          </div>
+          <Campo label="Nome completo" valor={nome} onChange={setNome} placeholder="Nome e sobrenome" />
+          {nome.trim() && !nomeOk && (
+            <p style={{ color: C.red }} className="text-[11px] mt-1">Escreva nome e sobrenome — é assim que o barbeiro te chama na cadeira.</p>
+          )}
+          <div className="mt-3">
+            <label style={{ color: C.steel }} className="text-[11px]">Celular com DDD</label>
+            <div className="flex items-center gap-2 mt-1 px-3 rounded-lg" style={{ background: C.ink, border: `1px solid ${tel && !telOk ? C.red : C.line}` }}>
+              <Phone size={15} color={C.steel} />
+              <input value={tel} onChange={(e) => setTel(e.target.value)} placeholder="(21) 90000-0000" inputMode="tel" className="btn w-full py-2 text-sm bg-transparent" style={{ ...mono, color: C.porc }} />
+            </div>
+            <p style={{ color: C.steel }} className="text-[11px] mt-1">É o seu login: da próxima vez o sistema já te reconhece por ele.</p>
+          </div>
+          <button
+            disabled={!pronto}
+            onClick={confirmar}
+            className="btn w-full mt-5 py-3 rounded-lg text-sm font-medium"
+            style={{ background: pronto ? ACC : C.line, color: pronto ? C.ink : C.steel }}
+          >
+            Confirmar agendamento
+          </button>
+          <p style={{ color: C.steel }} className="text-xs mt-2 text-center">No sistema real, o código chega por SMS.</p>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ---------- agenda do dia ---------- */
+function Painel({ dias, agendamentos, setAgendamentos, servicos, barbeiros, perfil }) {
+  const [data, setData] = useState(hojeISO);
+  const [filtro, setFiltro] = useState("todos");
+
+  const doDia = agendamentos
+    .filter((a) => a.data === data && (filtro === "todos" || a.barbeiro === filtro))
+    .sort((a, b) => a.ini - b.ini);
+
+  const ativos = doDia.filter((a) => a.status !== "cancelado");
+  const preco = (a) => (servicos.find((x) => x.id === a.servico) || { preco: 0 }).preco;
+  const dur = (a) => (servicos.find((x) => x.id === a.servico) || { dur: 30 }).dur;
+  const receita = ativos.reduce((s, a) => s + preco(a), 0);
+  const minutos = ativos.reduce((s, a) => s + dur(a), 0);
+  const equipe = barbeiros.filter((b) => b.ativo);
+  const capacidade = (perfil.fecha - perfil.abre) * (filtro === "todos" ? Math.max(equipe.length, 1) : 1);
+
+  const mudar = (id, status) => setAgendamentos((a) => a.map((x) => (x.id === id ? { ...x, status } : x)));
+
+  return (
+    <div>
+      <Titulo sub="Agenda do dia, por barbeiro.">Agenda</Titulo>
+      <FaixaDias dias={dias} valor={data} onChange={setData} />
+
+      <div className="grid grid-cols-3 gap-2 my-4">
+        {[["Agendados", ativos.length], ["Receita", brl(receita)], ["Ocupação", `${Math.round((minutos / capacidade) * 100)}%`]].map(([k, v]) => (
+          <div key={k} className="rounded-lg p-3" style={{ background: C.card, border: `1px solid ${C.line}` }}>
+            <div style={{ color: C.steel }} className="text-[10px] uppercase tracking-wide">{k}</div>
+            <div style={{ ...mono, color: ACC }} className="text-lg mt-0.5">{v}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex gap-2 overflow-x-auto pb-3">
+        {[{ id: "todos", apelido: "Todos" }, ...barbeiros].map((b) => (
+          <button
+            key={b.id} onClick={() => setFiltro(b.id)}
+            className="btn shrink-0 px-3 py-1.5 rounded-full text-xs border"
+            style={{ background: filtro === b.id ? ACC : "transparent", color: filtro === b.id ? C.ink : C.steel, borderColor: filtro === b.id ? ACC : C.line }}
+          >
+            {b.apelido}
+          </button>
+        ))}
+      </div>
+
+      {doDia.length === 0 ? (
+        <div className="rounded-lg p-6 text-center" style={{ background: C.card, border: `1px dashed ${C.line}` }}>
+          <CalendarDays size={20} color={C.steel} className="mx-auto mb-2" />
+          <p style={{ color: C.steel }} className="text-sm">Nenhum horário marcado. Marque pela aba Cliente para ver aparecer aqui.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {doDia.map((a) => {
+            const s = servicos.find((x) => x.id === a.servico) || { nome: "Serviço removido", preco: 0, dur: 30 };
+            const b = barbeiros.find((x) => x.id === a.barbeiro) || { apelido: "—" };
+            const cancelado = a.status === "cancelado";
+            return (
+              <div key={a.id} className="rounded-lg p-3" style={{ background: C.card, border: `1px solid ${C.line}`, opacity: cancelado ? 0.45 : 1 }}>
+                <div className="flex items-start gap-3">
+                  <div className="text-center shrink-0 pr-3" style={{ borderRight: `1px solid ${C.line}` }}>
+                    <div style={{ ...mono, color: C.porc }} className="text-base leading-tight">{hhmm(a.ini)}</div>
+                    <div style={{ ...mono, color: C.steel }} className="text-[10px] flex items-center gap-0.5 justify-center"><Clock size={9} />{s.dur}</div>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div style={{ color: C.porc }} className="text-sm font-medium truncate">{a.cliente}</div>
+                    <div style={{ color: C.steel }} className="text-xs truncate">{s.nome} · {b.apelido} · <span style={mono}>{brl(s.preco)}</span></div>
+                    <div style={{ ...mono, color: C.steel }} className="text-[11px] mt-0.5">{a.tel}</div>
+                  </div>
+                  <span
+                    className="text-[10px] px-2 py-0.5 rounded-full shrink-0"
+                    style={{
+                      background: a.status === "concluído" ? TINT : cancelado ? "rgba(178,58,47,0.15)" : C.line,
+                      color: a.status === "concluído" ? ACC : cancelado ? C.red : C.steel,
+                    }}
+                  >
+                    {a.status}
+                  </span>
+                </div>
+                {a.status === "confirmado" && (
+                  <div className="flex gap-2 mt-2.5">
+                    <button onClick={() => mudar(a.id, "concluído")} className="btn flex-1 py-1.5 rounded-md text-xs flex items-center justify-center gap-1" style={{ background: ACC, color: C.ink }}>
+                      <Check size={12} /> Concluir
+                    </button>
+                    <button onClick={() => mudar(a.id, "cancelado")} className="btn px-3 py-1.5 rounded-md text-xs flex items-center gap-1" style={{ border: `1px solid ${C.line}`, color: C.steel }}>
+                      <X size={12} /> Cancelar
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- administração ---------- */
+function Admin({ dias, agendamentos, servicos, setServicos, barbeiros, setBarbeiros, perfil, setPerfil }) {
+  const [sub, setSub] = useState("caixa");
+  const subs = [["caixa", "Caixa"], ["servicos", "Serviços"], ["equipe", "Equipe"], ["perfil", "Perfil"]];
+
+  return (
+    <div>
+      <Titulo sub="Identidade, preços, equipe e fechamento.">Admin</Titulo>
+      <div className="flex gap-1.5 mb-4">
+        {subs.map(([k, label]) => (
+          <button
+            key={k} onClick={() => setSub(k)}
+            className="btn flex-1 py-2 rounded-lg text-[11px] border"
+            style={{ background: sub === k ? ACC : C.card, color: sub === k ? C.ink : C.steel, borderColor: sub === k ? ACC : C.line }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {sub === "caixa" && <Caixa dias={dias} agendamentos={agendamentos} servicos={servicos} barbeiros={barbeiros} />}
+      {sub === "servicos" && <AdminServicos servicos={servicos} setServicos={setServicos} />}
+      {sub === "equipe" && <AdminEquipe barbeiros={barbeiros} setBarbeiros={setBarbeiros} agendamentos={agendamentos} />}
+      {sub === "perfil" && <AdminPerfil perfil={perfil} setPerfil={setPerfil} />}
+    </div>
+  );
+}
+
+function AdminPerfil({ perfil, setPerfil }) {
+  const set = (campo, valor) => setPerfil((p) => ({ ...p, [campo]: valor }));
+  const alternarDia = (d) => setPerfil((p) => ({
+    ...p,
+    fechados: p.fechados.includes(d) ? p.fechados.filter((x) => x !== d) : [...p.fechados, d].sort(),
+  }));
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-lg p-3" style={{ background: C.card, border: `1px solid ${C.line}` }}>
+        <div style={{ ...display, color: C.porc }} className="text-lg mb-2">IDENTIDADE</div>
+        <Campo label="Nome da barbearia" valor={perfil.nome} onChange={(v) => set("nome", v)} placeholder="Ex.: Barbearia do Zé" />
+        <div className="mt-2"><Campo label="Linha de apoio" valor={perfil.linha} onChange={(v) => set("linha", v)} placeholder="Barbearia · desde 2019" /></div>
+        <div className="mt-2"><Campo label="Endereço" valor={perfil.endereco} onChange={(v) => set("endereco", v)} placeholder="Rua, número — cidade" /></div>
+        <div className="mt-2"><Campo label="WhatsApp" valor={perfil.whats} onChange={(v) => set("whats", v)} placeholder="(21) 90000-0000" tipo="num" /></div>
+
+        <div className="mt-3">
+          <label style={{ color: C.steel }} className="text-[11px]">Cor da marca</label>
+          <div className="flex gap-2 mt-1.5 flex-wrap">
+            {CORES.map((c) => (
+              <button
+                key={c.hex}
+                onClick={() => set("cor", c.hex)}
+                className="btn w-9 h-9 rounded-full flex items-center justify-center"
+                style={{ background: c.hex, border: perfil.cor === c.hex ? `2px solid ${C.porc}` : `2px solid transparent` }}
+                title={c.nome}
+              >
+                {perfil.cor === c.hex && <Check size={14} color={C.ink} />}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-lg p-3" style={{ background: C.card, border: `1px solid ${C.line}` }}>
+        <div style={{ ...display, color: C.porc }} className="text-lg mb-3">FUNCIONAMENTO</div>
+
+        <div className="flex items-center justify-between">
+          <span style={{ color: C.steel }} className="text-xs">Abre</span>
+          <Passo
+            valor={hhmm(perfil.abre)}
+            onMenos={() => set("abre", Math.max(0, perfil.abre - 30))}
+            onMais={() => set("abre", Math.min(perfil.fecha - 60, perfil.abre + 30))}
+          />
+        </div>
+        <div className="flex items-center justify-between mt-2">
+          <span style={{ color: C.steel }} className="text-xs">Fecha</span>
+          <Passo
+            valor={hhmm(perfil.fecha)}
+            onMenos={() => set("fecha", Math.max(perfil.abre + 60, perfil.fecha - 30))}
+            onMais={() => set("fecha", Math.min(1440, perfil.fecha + 30))}
+          />
+        </div>
+        <div className="flex items-center justify-between mt-2">
+          <span style={{ color: C.steel }} className="text-xs">Intervalo entre horários</span>
+          <Passo
+            valor={`${perfil.passo} min`}
+            onMenos={() => set("passo", Math.max(10, perfil.passo - 5))}
+            onMais={() => set("passo", Math.min(60, perfil.passo + 5))}
+            largura="w-16"
+          />
+        </div>
+
+        <div className="mt-4 pt-3" style={{ borderTop: `1px solid ${C.line}` }}>
+          <label style={{ color: C.steel }} className="text-[11px]">Dias fechados</label>
+          <div className="flex gap-1.5 mt-2">
+            {SEMANA.map((s, d) => {
+              const fechado = perfil.fechados.includes(d);
+              return (
+                <button
+                  key={d}
+                  onClick={() => alternarDia(d)}
+                  className="btn flex-1 py-2 rounded-md text-[11px] border capitalize"
+                  style={{
+                    background: fechado ? "rgba(178,58,47,0.15)" : C.ink,
+                    borderColor: fechado ? C.red : C.line,
+                    color: fechado ? C.red : C.porc,
+                  }}
+                >
+                  {s}
+                </button>
+              );
+            })}
+          </div>
+          <p style={{ color: C.steel }} className="text-[11px] mt-2">Em vermelho, a barbearia não abre — esses dias somem do calendário do cliente.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Caixa({ dias, agendamentos, servicos, barbeiros }) {
+  const [data, setData] = useState(hojeISO);
+  const doDia = agendamentos.filter((a) => a.data === data);
+  const preco = (a) => (servicos.find((x) => x.id === a.servico) || { preco: 0 }).preco;
+  const comissaoDe = (a) => {
+    const b = barbeiros.find((x) => x.id === a.barbeiro);
+    return preco(a) * ((b ? b.comissao : 0) / 100);
+  };
+
+  const feitos = doDia.filter((a) => a.status === "concluído");
+  const previstos = doDia.filter((a) => a.status === "confirmado");
+
+  const bruto = feitos.reduce((s, a) => s + preco(a), 0);
+  const comissoes = feitos.reduce((s, a) => s + comissaoDe(a), 0);
+  const lucro = bruto - comissoes;
+  const aReceber = previstos.reduce((s, a) => s + preco(a), 0);
+  const ticket = feitos.length ? bruto / feitos.length : 0;
+
+  const porBarbeiro = barbeiros.map((b) => {
+    const meus = feitos.filter((a) => a.barbeiro === b.id);
+    const rec = meus.reduce((s, a) => s + preco(a), 0);
+    return { ...b, atendimentos: meus.length, receita: rec, comissao_valor: rec * (b.comissao / 100) };
+  }).filter((b) => b.atendimentos > 0);
+
+  const porServico = servicos.map((s) => {
+    const qtd = feitos.filter((a) => a.servico === s.id).length;
+    return { nome: s.nome, qtd, total: qtd * s.preco };
+  }).filter((s) => s.qtd > 0).sort((a, b) => b.total - a.total);
+
+  return (
+    <div>
+      <FaixaDias dias={dias} valor={data} onChange={setData} />
+
+      <div className="rounded-xl p-4 mt-4" style={{ background: C.card, border: `1px solid ${ACC}` }}>
+        <div style={{ color: C.steel }} className="text-[10px] uppercase tracking-wide">Lucro da casa no dia</div>
+        <div style={{ ...display, color: ACC }} className="text-5xl leading-none mt-1">{brl(lucro)}</div>
+        <div className="mt-3 pt-3 space-y-1 text-sm" style={{ borderTop: `1px solid ${C.line}` }}>
+          <div className="flex justify-between"><span style={{ color: C.steel }}>Faturamento realizado</span><span style={{ ...mono, color: C.porc }}>{brl(bruto)}</span></div>
+          <div className="flex justify-between"><span style={{ color: C.steel }}>Comissões da equipe</span><span style={{ ...mono, color: C.red }}>− {brl(comissoes)}</span></div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 mt-3">
+        {[["Atendidos", String(feitos.length)], ["Ticket médio", brl(ticket)], ["Ainda hoje", brl(aReceber)]].map(([k, v]) => (
+          <div key={k} className="rounded-lg p-3" style={{ background: C.card, border: `1px solid ${C.line}` }}>
+            <div style={{ color: C.steel }} className="text-[10px] uppercase tracking-wide">{k}</div>
+            <div style={{ ...mono, color: C.porc }} className="text-sm mt-0.5">{v}</div>
+          </div>
+        ))}
+      </div>
+
+      <h3 style={{ ...display, color: C.porc }} className="text-xl mt-6 mb-2">POR BARBEIRO</h3>
+      {porBarbeiro.length === 0 ? (
+        <p style={{ color: C.steel }} className="text-sm">Nenhum atendimento concluído nesse dia. Conclua os horários na aba Agenda para o caixa fechar.</p>
+      ) : (
+        <div className="space-y-2">
+          {porBarbeiro.map((b) => (
+            <div key={b.id} className="rounded-lg p-3 flex items-center justify-between gap-3" style={{ background: C.card, border: `1px solid ${C.line}` }}>
+              <div className="min-w-0">
+                <div style={{ color: C.porc }} className="text-sm">{b.apelido}</div>
+                <div style={{ color: C.steel }} className="text-xs">{b.atendimentos} atendimento{b.atendimentos > 1 ? "s" : ""} · comissão {b.comissao}%</div>
+              </div>
+              <div className="text-right shrink-0">
+                <div style={{ ...mono, color: C.porc }} className="text-sm">{brl(b.receita)}</div>
+                <div style={{ ...mono, color: C.steel }} className="text-[11px]">paga {brl(b.comissao_valor)}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {porServico.length > 0 && (
+        <>
+          <h3 style={{ ...display, color: C.porc }} className="text-xl mt-6 mb-2">O QUE VENDEU</h3>
+          <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${C.line}` }}>
+            {porServico.map((s, i) => (
+              <div key={s.nome} className="flex items-center justify-between px-3 py-2" style={{ background: C.card, borderTop: i ? `1px solid ${C.line}` : "none" }}>
+                <span style={{ color: C.porc }} className="text-sm">{s.nome}</span>
+                <span style={{ ...mono, color: C.steel }} className="text-xs">{s.qtd}× · {brl(s.total)}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function AdminServicos({ servicos, setServicos }) {
+  const [novo, setNovo] = useState({ nome: "", preco: "", dur: 30 });
+
+  const editar = (id, campo, valor) => setServicos((l) => l.map((s) => (s.id === id ? { ...s, [campo]: valor } : s)));
+  const ajustarDur = (id, delta) => setServicos((l) => l.map((s) => (s.id === id ? { ...s, dur: Math.max(10, Math.min(180, s.dur + delta)) } : s)));
+  const remover = (id) => setServicos((l) => l.filter((s) => s.id !== id));
+
+  const adicionar = () => {
+    const p = parseFloat(String(novo.preco).replace(",", "."));
+    if (!novo.nome.trim() || isNaN(p)) return;
+    setServicos((l) => [...l, { id: `s${Date.now()}`, nome: novo.nome.trim(), preco: p, dur: novo.dur, ativo: true }]);
+    setNovo({ nome: "", preco: "", dur: 30 });
+  };
+
+  return (
+    <div className="space-y-2">
+      {servicos.map((s) => (
+        <div key={s.id} className="rounded-lg p-3" style={{ background: C.card, border: `1px solid ${C.line}`, opacity: s.ativo ? 1 : 0.5 }}>
+          <div className="flex items-center gap-2">
+            <input value={s.nome} onChange={(e) => editar(s.id, "nome", e.target.value)} className="btn flex-1 min-w-0 bg-transparent text-sm font-medium" style={{ color: C.porc }} />
+            <button onClick={() => remover(s.id)} className="btn p-1.5 rounded-md shrink-0" style={{ border: `1px solid ${C.line}` }}>
+              <Trash2 size={13} color={C.steel} />
+            </button>
+          </div>
+
+          <div className="flex items-end gap-3 mt-2">
+            <div className="w-24">
+              <label style={{ color: C.steel }} className="text-[10px]">Preço R$</label>
+              <input
+                value={String(s.preco)}
+                inputMode="decimal"
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value.replace(",", "."));
+                  editar(s.id, "preco", isNaN(v) ? 0 : v);
+                }}
+                className="btn w-full mt-0.5 px-2 py-1.5 rounded-md text-sm"
+                style={{ ...mono, background: C.ink, border: `1px solid ${C.line}`, color: ACC }}
+              />
+            </div>
+            <div>
+              <label style={{ color: C.steel }} className="text-[10px]">Duração</label>
+              <div className="mt-0.5">
+                <Passo valor={`${s.dur} min`} onMenos={() => ajustarDur(s.id, -5)} onMais={() => ajustarDur(s.id, 5)} />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-2.5 pt-2.5" style={{ borderTop: `1px solid ${C.line}` }}>
+            <Chave ligado={s.ativo} onClick={() => editar(s.id, "ativo", !s.ativo)} rotulo={s.ativo ? "No cardápio" : "Fora do cardápio"} />
+          </div>
+        </div>
+      ))}
+
+      <div className="rounded-lg p-3 mt-3" style={{ background: C.card, border: `1px dashed ${C.line}` }}>
+        <div style={{ ...display, color: C.porc }} className="text-lg mb-2">NOVO SERVIÇO</div>
+        <Campo label="Nome" valor={novo.nome} onChange={(v) => setNovo({ ...novo, nome: v })} placeholder="Ex.: Sobrancelha" />
+        <div className="flex items-end gap-3 mt-2">
+          <Campo label="Preço R$" valor={novo.preco} onChange={(v) => setNovo({ ...novo, preco: v })} placeholder="30" largura="w-24" tipo="num" />
+          <div>
+            <label style={{ color: C.steel }} className="text-[11px]">Duração</label>
+            <div className="mt-1">
+              <Passo
+                valor={`${novo.dur} min`}
+                onMenos={() => setNovo({ ...novo, dur: Math.max(10, novo.dur - 5) })}
+                onMais={() => setNovo({ ...novo, dur: Math.min(180, novo.dur + 5) })}
+              />
+            </div>
+          </div>
+        </div>
+        <button onClick={adicionar} className="btn w-full mt-3 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-1" style={{ background: ACC, color: C.ink }}>
+          <Plus size={14} /> Adicionar serviço
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AdminEquipe({ barbeiros, setBarbeiros, agendamentos }) {
+  const [novo, setNovo] = useState({ nome: "", apelido: "", esp: "", comissao: "50" });
+  const [aviso, setAviso] = useState(null);
+
+  const editar = (id, campo, valor) => setBarbeiros((l) => l.map((b) => (b.id === id ? { ...b, [campo]: valor } : b)));
+
+  const remover = (id) => {
+    const temAgenda = agendamentos.some((a) => a.barbeiro === id && a.status === "confirmado");
+    if (temAgenda) {
+      setAviso("Esse barbeiro tem horários marcados. Desligue a disponibilidade dele — assim ele some do agendamento novo sem derrubar quem já marcou.");
+      return;
+    }
+    setAviso(null);
+    setBarbeiros((l) => l.filter((b) => b.id !== id));
+  };
+
+  const adicionar = () => {
+    if (!novo.nome.trim()) return;
+    const com = parseInt(novo.comissao, 10);
+    setBarbeiros((l) => [...l, {
+      id: `b${Date.now()}`,
+      nome: novo.nome.trim(),
+      apelido: novo.apelido.trim() || novo.nome.trim().split(" ")[0],
+      esp: novo.esp.trim() || "Cortes em geral",
+      comissao: isNaN(com) ? 50 : com,
+      ativo: true,
+    }]);
+    setNovo({ nome: "", apelido: "", esp: "", comissao: "50" });
+  };
+
+  return (
+    <div className="space-y-2">
+      {aviso && (
+        <div className="rounded-lg p-3 text-xs" style={{ background: "rgba(178,58,47,0.12)", border: `1px solid ${C.red}`, color: C.porc }}>
+          {aviso}
+        </div>
+      )}
+
+      {barbeiros.map((b) => (
+        <div key={b.id} className="rounded-lg p-3" style={{ background: C.card, border: `1px solid ${C.line}`, opacity: b.ativo ? 1 : 0.55 }}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: C.line }}>
+              <span style={{ ...display, color: ACC }} className="text-lg leading-none">{b.apelido.slice(0, 2).toUpperCase()}</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <input value={b.nome} onChange={(e) => editar(b.id, "nome", e.target.value)} className="btn w-full bg-transparent text-sm font-medium" style={{ color: C.porc }} />
+              <input value={b.esp} onChange={(e) => editar(b.id, "esp", e.target.value)} className="btn w-full bg-transparent text-xs" style={{ color: C.steel }} />
+            </div>
+            <button onClick={() => remover(b.id)} className="btn p-1.5 rounded-md shrink-0" style={{ border: `1px solid ${C.line}` }}>
+              <Trash2 size={13} color={C.steel} />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between mt-3 pt-2.5" style={{ borderTop: `1px solid ${C.line}` }}>
+            <Chave ligado={b.ativo} onClick={() => editar(b.id, "ativo", !b.ativo)} rotulo={b.ativo ? "Disponível" : "Indisponível"} />
+            <div className="flex items-center gap-1">
+              <span style={{ color: C.steel }} className="text-[11px]">Comissão</span>
+              <button onClick={() => editar(b.id, "comissao", Math.max(0, b.comissao - 5))} className="btn p-1 rounded-md" style={{ border: `1px solid ${C.line}` }}>
+                <Minus size={11} color={C.steel} />
+              </button>
+              <span style={{ ...mono, color: ACC }} className="text-sm w-10 text-center">{b.comissao}%</span>
+              <button onClick={() => editar(b.id, "comissao", Math.min(100, b.comissao + 5))} className="btn p-1 rounded-md" style={{ border: `1px solid ${C.line}` }}>
+                <Plus size={11} color={C.steel} />
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+
+      <div className="rounded-lg p-3 mt-3" style={{ background: C.card, border: `1px dashed ${C.line}` }}>
+        <div style={{ ...display, color: C.porc }} className="text-lg mb-2">NOVO BARBEIRO</div>
+        <Campo label="Nome completo" valor={novo.nome} onChange={(v) => setNovo({ ...novo, nome: v })} placeholder="Ex.: Carlos Andrade" />
+        <div className="flex gap-3 mt-2">
+          <Campo label="Como aparece" valor={novo.apelido} onChange={(v) => setNovo({ ...novo, apelido: v })} placeholder="Carlinhos" />
+          <Campo label="Comissão %" valor={novo.comissao} onChange={(v) => setNovo({ ...novo, comissao: v })} placeholder="50" largura="w-24" tipo="num" />
+        </div>
+        <div className="mt-2">
+          <Campo label="Especialidade" valor={novo.esp} onChange={(v) => setNovo({ ...novo, esp: v })} placeholder="Navalha e barba" />
+        </div>
+        <button onClick={adicionar} className="btn w-full mt-3 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-1" style={{ background: ACC, color: C.ink }}>
+          <Plus size={14} /> Adicionar à equipe
+        </button>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
